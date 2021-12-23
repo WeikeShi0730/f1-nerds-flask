@@ -1,6 +1,5 @@
-from flask import Flask
+from flask import Flask, jsonify
 from flask_caching import Cache
-import json
 import pandas as pd
 from matplotlib import pyplot as plt
 import fastf1 as ff1
@@ -19,23 +18,31 @@ cache = Cache(app)
 
 # api.Cache.enable_cache("./")
 
+
+@app.route("/")
+def index():
+
+    return "index"
+
+
 # session result
-@app.route("/api/year/<year>/weekend/<weekend>/session/<session>")
+@app.route("/api/year/<year>/weekend/<weekend>/session/<session>", methods=["GET"])
 def session_result(year, weekend, session):
     cached_session = cache.get(year + "-" + weekend + "-" + session)
     if cached_session is None:
-        print("NO Cache!!!")
-        session_data = ff1.get_session(year, weekend, session)
-        cache.set(year + "-" + weekend + "-" + session, session_data)
+        session_results_data = ff1.get_session(year, weekend, session).results
+        cache.set(year + "-" + weekend + "-" + session, session_results_data)
     else:
-        print("Yes Cache!!!")
-        session_data = cached_session
+        session_results_data = cached_session
 
-    return json.dumps(session_data.results)
+    return jsonify(session_results_data)
 
 
 # driver laps
-@app.route("/api/year/<year>/weekend/<weekend>/session/<session>/driver/<driver>")
+@app.route(
+    "/api/year/<year>/weekend/<weekend>/session/<session>/driver/<driver>",
+    methods=["GET"],
+)
 def driver_laps(year, weekend, session, driver):
     cached_driver_laps = cache.get(year + "-" + weekend + "-" + session + "-" + driver)
     if cached_driver_laps is None:
@@ -58,14 +65,14 @@ def driver_laps(year, weekend, session, driver):
 
 # driver lap telemetry
 @app.route(
-    "/api/year/<year>/weekend/<weekend>/session/<session>/driver/<driver>/lap/<lap>"
+    "/api/year/<year>/weekend/<weekend>/session/<session>/driver/<driver>/lap/<lap>",
+    methods=["GET"],
 )
 def driver_lap(year, weekend, session, driver, lap):
     cached_driver_laps = cache.get(
         year + "-" + weekend + "-" + session + "-" + driver + "-" + lap
     )
     if cached_driver_laps is None:
-        print("NO Cache!!!")
         lap = int(lap)
         session_data = cache.get(year + "-" + weekend + "-" + session)
         if session_data is not None:
@@ -99,11 +106,10 @@ def driver_lap(year, weekend, session, driver, lap):
             telemetry_data,
         )
     else:
-        print("Yes Cache!!!")
         telemetry_data = cached_driver_laps
 
     return telemetry_data.to_json()
 
 
-if __name__ == "__main__":
-    app.run(host="127.0.0.1", debug=True)
+# if __name__ == "__main__":
+#     app.run(host="127.0.0.1", debug=True)
