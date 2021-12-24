@@ -1,3 +1,2 @@
 /venv
-/fastf1_http_cache.sqlite
-.vercel
+dump.rdb

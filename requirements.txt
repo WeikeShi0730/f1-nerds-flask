@@ -2,6 +2,7 @@ certifi==2021.10.8
 charset-normalizer==2.0.9
 click==8.0.3
 cycler==0.11.0
+Deprecated==1.2.13
 fastf1==2.1.12
 Flask==2.0.2
 Flask-Caching==1.10.1
@@ -20,8 +21,10 @@ Pillow==8.4.0
 pyparsing==3.0.6
 python-dateutil==2.8.2
 pytz==2021.3
+redis==4.0.2
 requests==2.26.0
 requests-cache==0.5.2
+rq==1.10.1
 scipy==1.7.3
 signalr-client-aio==0.0.1.6.2
 six==1.16.0
@@ -30,3 +33,4 @@ timple==0.1.5
 urllib3==1.26.7
 websockets==10.1
 Werkzeug==2.0.2
+wrapt==1.13.3

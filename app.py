@@ -5,16 +5,21 @@ from matplotlib import pyplot as plt
 import fastf1 as ff1
 from fastf1 import plotting
 from fastf1 import api
+from rq import Queue
+from rq.job import Job
+from worker import conn, redis_url
 
 config = {
     "DEBUG": True,  # some Flask specific configs
-    "CACHE_TYPE": "SimpleCache",  # Flask-Caching related configs
-    "CACHE_DEFAULT_TIMEOUT": 300,
+    "CACHE_TYPE": "RedisCache",  # Flask-Caching related configs
+    "CACHE_REDIS_URL": redis_url,
+    "CACHE_DEFAULT_TIMEOUT": 500,
 }
 
 app = Flask(__name__)
 app.config.from_mapping(config)
 cache = Cache(app)
+q = Queue(connection=conn)
 
 # api.Cache.enable_cache("./")
 
@@ -69,46 +74,54 @@ def driver_laps(year, weekend, session, driver):
     methods=["GET"],
 )
 def driver_lap(year, weekend, session, driver, lap):
-    cached_driver_laps = cache.get(
-        year + "-" + weekend + "-" + session + "-" + driver + "-" + lap
-    )
-    if cached_driver_laps is None:
-        lap = int(lap)
-        session_data = cache.get(year + "-" + weekend + "-" + session)
-        if session_data is not None:
-            laps = session_data.load_laps(with_telemetry=True)
-        else:
-            laps = ff1.get_session(year, weekend, session).load_laps(
-                with_telemetry=True
-            )
-        laps_driver = laps.pick_driver(driver)
-        lap_driver = laps_driver.iloc[lap - 1 : lap, :].pick_fastest()
-        lap_telemetry = lap_driver.get_car_data()
-        telemetry_speed = lap_telemetry["Speed"]
-        telemetry_throttle = lap_telemetry["Throttle"]
-        telemetry_brake = lap_telemetry["Brake"]
-        telemetry_rpm = lap_telemetry["RPM"]
-        telemetry_gear = lap_telemetry["nGear"]
-        telemetry_drs = lap_telemetry["DRS"]
-        telemetry_data = pd.concat(
-            [
-                telemetry_speed,
-                telemetry_rpm,
-                telemetry_throttle,
-                telemetry_brake,
-                telemetry_gear,
-                telemetry_drs,
-            ],
-            axis=1,
+    job_id = year + "-" + weekend + "-" + session + "-" + driver + "-" + lap
+    try:
+        cached_driver_laps = Job.fetch(job_id, connection=conn)
+        telemetry_data = cached_driver_laps.result
+    except:
+        print("no id")
+        print("No cache")
+        new_job = q.enqueue(
+            get_driver_lap_data,
+            args=(year, weekend, session, driver, lap),
+            job_id=job_id,
         )
-        cache.set(
-            year + "-" + weekend + "-" + session + "-" + driver + "-" + str(lap),
-            telemetry_data,
-        )
-    else:
-        telemetry_data = cached_driver_laps
+        while True:
+            if new_job.get_status() == "finished":
+                break
+        telemetry_data = new_job.result
 
     return telemetry_data.to_json()
+
+
+def get_driver_lap_data(year, weekend, session, driver, lap):
+    lap = int(lap)
+    session_data = cache.get(year + "-" + weekend + "-" + session)
+    if session_data is not None:
+        laps = session_data.load_laps(with_telemetry=True)
+    else:
+        laps = ff1.get_session(year, weekend, session).load_laps(with_telemetry=True)
+    laps_driver = laps.pick_driver(driver)
+    lap_driver = laps_driver.iloc[lap - 1 : lap, :].pick_fastest()
+    lap_telemetry = lap_driver.get_car_data()
+    telemetry_speed = lap_telemetry["Speed"]
+    telemetry_throttle = lap_telemetry["Throttle"]
+    telemetry_brake = lap_telemetry["Brake"]
+    telemetry_rpm = lap_telemetry["RPM"]
+    telemetry_gear = lap_telemetry["nGear"]
+    telemetry_drs = lap_telemetry["DRS"]
+    telemetry_data = pd.concat(
+        [
+            telemetry_speed,
+            telemetry_rpm,
+            telemetry_throttle,
+            telemetry_brake,
+            telemetry_gear,
+            telemetry_drs,
+        ],
+        axis=1,
+    )
+    return telemetry_data
 
 
 # if __name__ == "__main__":
