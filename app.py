@@ -19,10 +19,8 @@ config = {
 app = Flask(__name__)
 app.config.from_mapping(config)
 cache = Cache(app)
+# cache.clear()
 q = Queue(connection=conn)
-
-# api.Cache.enable_cache("./")
-
 
 @app.route("/")
 def index():
@@ -32,14 +30,15 @@ def index():
 # session result
 @app.route("/api/year/<year>/weekend/<weekend>/session/<session>", methods=["GET"])
 def session_result(year, weekend, session):
-    cached_session = cache.get(year + "-" + weekend + "-" + session)
+    id = year + "-" + weekend + "-" + session
+    cached_session = cache.get(id)
     if cached_session is None:
-        session_results_data = ff1.get_session(year, weekend, session).results
-        cache.set(year + "-" + weekend + "-" + session, session_results_data)
+        session_results_data = ff1.get_session(year, weekend, session)
+        cache.set(id, session_results_data)
     else:
         session_results_data = cached_session
 
-    return jsonify(session_results_data)
+    return jsonify(session_results_data.results)
 
 
 # driver laps
@@ -48,9 +47,11 @@ def session_result(year, weekend, session):
     methods=["GET"],
 )
 def driver_laps(year, weekend, session, driver):
-    cached_driver_laps = cache.get(year + "-" + weekend + "-" + session + "-" + driver)
+    id = year + "-" + weekend + "-" + session + "-" + driver
+    cached_driver_laps = cache.get(id)
     if cached_driver_laps is None:
         session_data = cache.get(year + "-" + weekend + "-" + session)
+        
         if session_data is not None:
             laps = session_data.load_laps()
         else:
@@ -60,7 +61,7 @@ def driver_laps(year, weekend, session, driver):
         laps_number = driver_data["LapNumber"]
         laps_tire = driver_data["Compound"]
         driver_laps_data = pd.concat([laps_number, laps_time, laps_tire], axis=1)
-        cache.set(year + "-" + weekend + "-" + session + "-" + driver, driver_laps_data)
+        cache.set(id, driver_laps_data)
     else:
         driver_laps_data = cached_driver_laps
 
@@ -79,7 +80,7 @@ def driver_lap(year, weekend, session, driver, lap):
         cached_driver_laps = Job.fetch(job_id, connection=conn)
         job_status = cached_driver_laps.get_status()
         if job_status == "finished":
-            return jsonify(cached_driver_laps.result)
+            return cached_driver_laps.result.to_json()
         elif job_status == "failed":
             registry = q.failed_job_registry
             registry.requeue(job_id)
@@ -125,5 +126,5 @@ def get_driver_lap_data(year, weekend, session, driver, lap):
     return telemetry_data
 
 
-# if __name__ == "__main__":
-#     app.run(host="127.0.0.1", debug=True)
+if __name__ == "__main__":
+    app.run()
