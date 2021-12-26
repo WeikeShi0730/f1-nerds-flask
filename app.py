@@ -26,7 +26,6 @@ q = Queue(connection=conn)
 
 @app.route("/")
 def index():
-
     return "index"
 
 
@@ -76,22 +75,24 @@ def driver_laps(year, weekend, session, driver):
 def driver_lap(year, weekend, session, driver, lap):
     job_id = year + "-" + weekend + "-" + session + "-" + driver + "-" + lap
     try:
+
         cached_driver_laps = Job.fetch(job_id, connection=conn)
-        telemetry_data = cached_driver_laps.result
+        job_status = cached_driver_laps.get_status()
+        if job_status == "finished":
+            return jsonify(cached_driver_laps.result)
+        elif job_status == "failed":
+            registry = q.failed_job_registry
+            registry.requeue(job_id)
+            return jsonify(job_status)
+        else:
+            return jsonify(job_status)
     except:
-        print("no id")
-        print("No cache")
         new_job = q.enqueue(
             get_driver_lap_data,
             args=(year, weekend, session, driver, lap),
             job_id=job_id,
         )
-        while True:
-            if new_job.get_status() == "finished":
-                break
-        telemetry_data = new_job.result
-
-    return telemetry_data.to_json()
+        return jsonify(new_job.id)
 
 
 def get_driver_lap_data(year, weekend, session, driver, lap):
