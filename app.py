@@ -35,6 +35,12 @@ def index():
     return "index"
 
 
+FP1 = {"FP1": "FP1"}
+FP2 = {"FP2": "FP2"}
+FP3 = {"FP3": "FP3"}
+Qualifying = {"Q": "Qualifying"}
+Sprint = {"S": "Sprint Qualifying"}
+Race = {"R": "Race"}
 # get weekend sessions
 @app.route("/api/year/<year>/weekend/<weekend>", methods=["GET"])
 def weekend(year, weekend):
@@ -45,14 +51,14 @@ def weekend(year, weekend):
         round = ff1.core.get_round(year, weekend_data.name)
         if weekend_data.name in SPRINT_QUALI_WEEKENDS and year == str(2021):
             weekend_sessions = [
-                "FP1",
-                "Qualifying",
-                "FP2",
-                "Sprint Qualifying",
-                "Race",
+                FP1,
+                Qualifying,
+                FP2,
+                Sprint,
+                Race,
             ]
         else:
-            weekend_sessions = ["FP1", "FP2", "FP3", "Qualifying", "Race"]
+            weekend_sessions = [FP1, FP2, FP3, Qualifying, Race]
         weekend_round_sessions_data = {
             "weekend_sessions": weekend_sessions,
             "round": round,
@@ -116,7 +122,8 @@ def driver_lap(year, weekend, session, driver, lap):
         cached_driver_laps = Job.fetch(job_id, connection=conn)
         job_status = cached_driver_laps.get_status()
         if job_status == "finished":
-            return cached_driver_laps.result.to_json()
+            # print(cached_driver_laps.result)
+            return jsonify(cached_driver_laps.result.T.to_dict("records"))
         elif job_status == "failed":
             registry = q.failed_job_registry
             registry.requeue(job_id)
@@ -139,7 +146,9 @@ def get_driver_lap_data(year, weekend, session, driver, lap):
     if session_data is not None:
         laps = session_data.load_laps(with_telemetry=True)
     else:
-        laps = ff1.core.get_session(year, weekend, session).load_laps(with_telemetry=True)
+        laps = ff1.core.get_session(year, weekend, session).load_laps(
+            with_telemetry=True
+        )
     laps_driver = laps.pick_driver(driver)
     lap_driver = laps_driver.iloc[lap - 1 : lap, :].pick_fastest()
     lap_telemetry = lap_driver.get_car_data()
@@ -160,6 +169,7 @@ def get_driver_lap_data(year, weekend, session, driver, lap):
         ],
         axis=1,
     )
+
     return telemetry_data
 
 
