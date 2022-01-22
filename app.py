@@ -1,6 +1,7 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_caching import Cache
+import json
 import pandas as pd
 from matplotlib import pyplot as plt
 import fastf1 as ff1
@@ -14,7 +15,7 @@ config = {
     "DEBUG": True,  # some Flask specific configs
     "CACHE_TYPE": "RedisCache",  # Flask-Caching related configs
     "CACHE_REDIS_URL": redis_url,
-    "CACHE_DEFAULT_TIMEOUT": 500,
+    "CACHE_DEFAULT_TIMEOUT": 5000,
 }
 
 app = Flask(__name__)
@@ -39,7 +40,7 @@ FP1 = {"FP1": "FP1"}
 FP2 = {"FP2": "FP2"}
 FP3 = {"FP3": "FP3"}
 Qualifying = {"Q": "Qualifying"}
-Sprint = {"S": "Sprint Qualifying"}
+Sprint = {"SQ": "Sprint Qualifying"}
 Race = {"R": "Race"}
 # get weekend sessions
 @app.route("/api/year/<year>/weekend/<weekend>", methods=["GET"])
@@ -47,8 +48,8 @@ def weekend(year, weekend):
     id = year + "-" + weekend
     cached_weekend = cache.get(id)
     if cached_weekend is None:
-        weekend_data = ff1.core.get_session(year, weekend)
-        round = ff1.core.get_round(year, weekend_data.name)
+        weekend_data = ff1.get_session(int(year), weekend)
+        round = ff1.core.get_round(int(year), weekend_data.name)
         if weekend_data.name in SPRINT_QUALI_WEEKENDS and year == str(2021):
             weekend_sessions = [
                 FP1,
@@ -76,7 +77,7 @@ def session_result(year, weekend, session):
     id = year + "-" + weekend + "-" + session
     cached_session = cache.get(id)
     if cached_session is None:
-        session_results_data = ff1.core.get_session(year, weekend, session)
+        session_results_data = ff1.core.get_session(int(year), weekend, session)
         cache.set(id, session_results_data)
     else:
         session_results_data = cached_session
@@ -98,7 +99,7 @@ def driver_laps(year, weekend, session, driver):
         if session_data is not None:
             laps = session_data.load_laps()
         else:
-            laps = ff1.core.get_session(year, weekend, session).load_laps()
+            laps = ff1.core.get_session(int(year), weekend, session).load_laps()
         driver_data = laps.pick_driver(driver)
         laps_time = driver_data["LapTime"]
         laps_number = driver_data["LapNumber"]
@@ -122,8 +123,7 @@ def driver_lap(year, weekend, session, driver, lap):
         cached_driver_laps = Job.fetch(job_id, connection=conn)
         job_status = cached_driver_laps.get_status()
         if job_status == "finished":
-            # print(cached_driver_laps.result)
-            return jsonify(cached_driver_laps.result.T.to_dict("records"))
+            return jsonify(cached_driver_laps.result.to_dict("records"))
         elif job_status == "failed":
             registry = q.failed_job_registry
             registry.requeue(job_id)
@@ -146,7 +146,7 @@ def get_driver_lap_data(year, weekend, session, driver, lap):
     if session_data is not None:
         laps = session_data.load_laps(with_telemetry=True)
     else:
-        laps = ff1.core.get_session(year, weekend, session).load_laps(
+        laps = ff1.core.get_session(int(year), weekend, session).load_laps(
             with_telemetry=True
         )
     laps_driver = laps.pick_driver(driver)
@@ -169,6 +169,7 @@ def get_driver_lap_data(year, weekend, session, driver, lap):
         ],
         axis=1,
     )
+    telemetry_data["index"] = telemetry_data.index
 
     return telemetry_data
 
