@@ -1,12 +1,8 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_caching import Cache
-import json
 import pandas as pd
-from matplotlib import pyplot as plt
 import fastf1 as ff1
-from fastf1 import plotting
-from fastf1 import api
 from rq import Queue
 from rq.job import Job
 from worker import conn, redis_url
@@ -135,6 +131,7 @@ def driver_lap(year, weekend, session, driver, lap):
             get_driver_lap_data,
             args=(year, weekend, session, driver, lap),
             job_id=job_id,
+            result_ttl=5000,
         )
         return jsonify(new_job.id)
 
