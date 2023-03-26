@@ -39,6 +39,10 @@ Qualifying = {"Q": "Qualifying"}
 Sprint = {"SQ": "Sprint Qualifying"}
 Race = {"R": "Race"}
 # get weekend sessions
+@app.route("/api/test", methods=["GET"])
+def test():
+    return jsonify("Hello")
+
 @app.route("/api/year/<year>/weekend/<weekend>", methods=["GET"])
 def weekend(year, weekend):
     id = year + "-" + weekend
