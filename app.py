@@ -26,11 +26,9 @@ SPRINT_QUALI_WEEKENDS = [
     "São Paulo Grand Prix",
 ]
 
-
 @app.route("/")
 def index():
     return "index"
-
 
 FP1 = {"FP1": "FP1"}
 FP2 = {"FP2": "FP2"}
@@ -39,9 +37,6 @@ Qualifying = {"Q": "Qualifying"}
 Sprint = {"SQ": "Sprint Qualifying"}
 Race = {"R": "Race"}
 # get weekend sessions
-@app.route("/api/test", methods=["GET"])
-def test():
-    return jsonify("Hello")
 
 @app.route("/api/year/<year>/weekend/<weekend>", methods=["GET"])
 def weekend(year, weekend):
