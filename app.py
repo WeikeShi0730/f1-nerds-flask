@@ -2,7 +2,7 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_caching import Cache
 import pandas as pd
-import fastf1 as ff1
+import fastf1
 from rq import Queue
 from rq.job import Job
 from worker import conn, redis_url
@@ -20,7 +20,7 @@ app.config.from_mapping(config)
 cache = Cache(app)
 q = Queue(connection=conn)
 
-SPRINT_QUALI_WEEKENDS = [
+SPRINT_QUALI_WEEKENDS = [ # Update 2022 and 2023 sprint races
     "British Grand Prix",
     "Italian Grand Prix",
     "São Paulo Grand Prix",
@@ -43,8 +43,8 @@ def weekend(year, weekend):
     id = year + "-" + weekend
     cached_weekend = cache.get(id)
     if cached_weekend is None:
-        weekend_data = ff1.get_session(int(year), weekend)
-        round = ff1.core.get_round(int(year), weekend_data.name)
+        weekend_data = fastf1.get_session(int(year), weekend)
+        round = fastf1.core.get_round(int(year), weekend_data.name)
         if weekend_data.name in SPRINT_QUALI_WEEKENDS and year == str(2021):
             weekend_sessions = [
                 FP1,
@@ -57,13 +57,12 @@ def weekend(year, weekend):
             weekend_sessions = [FP1, FP2, FP3, Qualifying, Race]
         weekend_round_sessions_data = {
             "weekend_sessions": weekend_sessions,
-            "round": round,
+            "round": str(round),
         }
         cache.set(id, weekend_round_sessions_data)
     else:
         weekend_round_sessions_data = cached_weekend
-
-    return jsonify(weekend_round_sessions_data)
+    return (weekend_round_sessions_data)
 
 
 # session drivers
@@ -72,12 +71,12 @@ def session_result(year, weekend, session):
     id = year + "-" + weekend + "-" + session
     cached_session = cache.get(id)
     if cached_session is None:
-        session_results_data = ff1.core.get_session(int(year), weekend, session)
+        session_results_data = fastf1.get_session(int(year), weekend, session)
+        session_results_data.load(laps=True, telemetry=False, weather=False, messages=False) #!!!!!!!!!!!!!!
         cache.set(id, session_results_data)
     else:
         session_results_data = cached_session
-
-    return jsonify(session_results_data.results)
+    return jsonify(session_results_data.results.to_json())
 
 
 # driver laps
@@ -94,7 +93,7 @@ def driver_laps(year, weekend, session, driver):
         if session_data is not None:
             laps = session_data.load_laps()
         else:
-            laps = ff1.core.get_session(int(year), weekend, session).load_laps()
+            laps = fastf1.get_session(int(year), weekend, session).load_laps()
         driver_data = laps.pick_driver(driver)
         laps_time = driver_data["LapTime"]
         laps_number = driver_data["LapNumber"]
@@ -117,6 +116,7 @@ def driver_lap(year, weekend, session, driver, lap):
     try:
         cached_driver_laps = Job.fetch(job_id, connection=conn)
         job_status = cached_driver_laps.get_status()
+
         if job_status == "finished":
             return jsonify(cached_driver_laps.result.to_dict("records"))
         elif job_status == "failed":
@@ -140,13 +140,13 @@ def get_driver_lap_data(year, weekend, session, driver, lap):
     lap = int(lap)
     session_data = cache.get(year + "-" + weekend + "-" + session)
     if session_data is not None:
-        laps = session_data.load_laps(with_telemetry=True)
+        session_data.load()
     else:
-        laps = ff1.core.get_session(int(year), weekend, session).load_laps(
-            with_telemetry=True
-        )
-    laps_driver = laps.pick_driver(driver)
-    lap_driver = laps_driver.iloc[lap - 1 : lap, :].pick_fastest()
+        session_data = fastf1.get_session(int(year), weekend, session)
+        session_data.load()
+    laps = session_data.laps
+    laps_driver = laps.pick_driver(driver) # pick_drivers!!!!
+    lap_driver = laps_driver.pick_fastest()
     lap_telemetry = lap_driver.get_car_data()
     telemetry_speed = lap_telemetry["Speed"]
     telemetry_throttle = lap_telemetry["Throttle"]
