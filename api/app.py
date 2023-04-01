@@ -62,7 +62,7 @@ def weekend(year, weekend):
         cache.set(id, weekend_round_sessions_data)
     else:
         weekend_round_sessions_data = cached_weekend
-    return (weekend_round_sessions_data)
+    return jsonify(weekend_round_sessions_data)
 
 
 # session drivers
@@ -72,11 +72,28 @@ def session_result(year, weekend, session):
     cached_session = cache.get(id)
     if cached_session is None:
         session_results_data = fastf1.get_session(int(year), weekend, session)
-        session_results_data.load(laps=True, telemetry=False, weather=False, messages=False) #!!!!!!!!!!!!!!
         cache.set(id, session_results_data)
     else:
         session_results_data = cached_session
-    return jsonify(session_results_data.results.to_json())
+    session_results_data.load()
+    results = session_results_data.results
+    # FastestLap = {}
+    # for driver in results["DriverNumber"]:
+    #     print(driver)
+    #     fastestLap = session_results_data.laps.pick_driver(driver).pick_fastest()
+    #     FastestLap[driver] = fastestLap['LapTime'].to_numpy()
+    # print(FastestLap)
+    tmp = {
+        "DriverNumber": results["DriverNumber"].to_dict(),
+        "BroadcastName": results["BroadcastName"].to_dict(),
+        "TeamName": results["TeamName"].to_dict(),
+        "Position":results["Position"].to_dict(),
+        "GridPosition":results["GridPosition"].to_dict(),
+        # "FastestLap" : FastestLap,
+        "Status":results["Status"].to_dict(),
+        "Points":results["Points"].to_dict(),
+    }
+    return jsonify(tmp)
 
 
 # driver laps
