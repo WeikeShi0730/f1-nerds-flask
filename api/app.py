@@ -77,19 +77,23 @@ def session_result(year, weekend, session):
         session_results_data = cached_session
     session_results_data.load()
     results = session_results_data.results
-    # FastestLap = {}
-    # for driver in results["DriverNumber"]:
-    #     print(driver)
-    #     fastestLap = session_results_data.laps.pick_driver(driver).pick_fastest()
-    #     FastestLap[driver] = fastestLap['LapTime'].to_numpy()
-    # print(FastestLap)
+
+    def position(driver):
+        return results['Position'][driver]
+    sortedDriverPositionNumber = list(results["DriverNumber"])
+    sortedDriverPositionNumber.sort(key=position)
+    
+    FastestLap = {}
+    for driver in results["DriverNumber"]:
+        fastestLap = session_results_data.laps.pick_driver(driver).pick_fastest()
+        FastestLap[driver] = str(fastestLap['LapTime'].to_pytimedelta())[:-3]
     tmp = {
-        "DriverNumber": results["DriverNumber"].to_dict(),
+        "sortedDriverPositionNumber": sortedDriverPositionNumber,
         "BroadcastName": results["BroadcastName"].to_dict(),
         "TeamName": results["TeamName"].to_dict(),
         "Position":results["Position"].to_dict(),
         "GridPosition":results["GridPosition"].to_dict(),
-        # "FastestLap" : FastestLap,
+        "FastestLap" : FastestLap,
         "Status":results["Status"].to_dict(),
         "Points":results["Points"].to_dict(),
     }
