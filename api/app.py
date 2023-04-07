@@ -20,9 +20,22 @@ app.config.from_mapping(config)
 cache = Cache(app)
 q = Queue(connection=conn)
 
-SPRINT_QUALI_WEEKENDS = [ # Update 2022 and 2023 sprint races
+SPRINT_QUALI_WEEKENDS_2021 = [
     "British Grand Prix",
     "Italian Grand Prix",
+    "São Paulo Grand Prix",
+]
+SPRINT_QUALI_WEEKENDS_2022 = [
+    "Emilia Romagna Grand Prix",
+    "Austrian Grand Prix",
+    "São Paulo Grand Prix",
+]
+SPRINT_QUALI_WEEKENDS_2023 = [
+    "Azerbaijan Grand Prix",
+    "Austrian Grand Prix",
+    "Belgian Grand Prix",
+    "Qatar Grand Prix",
+    "United States Grand Prix",
     "São Paulo Grand Prix",
 ]
 
@@ -45,7 +58,7 @@ def weekend(year, weekend):
     if cached_weekend is None:
         weekend_data = fastf1.get_session(int(year), weekend)
         round = fastf1.core.get_round(int(year), weekend_data.name)
-        if weekend_data.name in SPRINT_QUALI_WEEKENDS and year == str(2021):
+        if (weekend_data.name in SPRINT_QUALI_WEEKENDS_2021 and year == str(2021)) or (weekend_data.name in SPRINT_QUALI_WEEKENDS_2022 and year == str(2022)) or (weekend_data.name in SPRINT_QUALI_WEEKENDS_2023 and year == str(2023)):
             weekend_sessions = [
                 FP1,
                 Qualifying,
@@ -84,15 +97,22 @@ def session_result(year, weekend, session):
     sortedDriverPositionNumber.sort(key=position)
     
     FastestLap = {}
+    FastestLapRank = {} #!!!!!!!!!!!!!!!!!!!!!
+    GridDelta = {}
     for driver in results["DriverNumber"]:
         fastestLap = session_results_data.laps.pick_driver(driver).pick_fastest()
         FastestLap[driver] = str(fastestLap['LapTime'].to_pytimedelta())[:-3]
+
+        GridDelta[driver] = results["GridPosition"][driver] - results["Position"][driver]
+
+
     tmp = {
         "sortedDriverPositionNumber": sortedDriverPositionNumber,
         "BroadcastName": results["BroadcastName"].to_dict(),
         "TeamName": results["TeamName"].to_dict(),
         "Position":results["Position"].to_dict(),
         "GridPosition":results["GridPosition"].to_dict(),
+        "GridDelta": GridDelta,
         "FastestLap" : FastestLap,
         "Status":results["Status"].to_dict(),
         "Points":results["Points"].to_dict(),
