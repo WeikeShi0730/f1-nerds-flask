@@ -84,40 +84,40 @@ def session_result(year, weekend, session):
     id = year + "-" + weekend + "-" + session
     cached_session = cache.get(id)
     if cached_session is None:
-        session_results_data = fastf1.get_session(int(year), weekend, session)
+        session_results = fastf1.get_session(int(year), weekend, session)
+        session_results.load()
+        results = session_results.results
+
+        def position(driver):
+            return results['Position'][driver]
+        sortedDriverPositionNumber = list(results["DriverNumber"])
+        sortedDriverPositionNumber.sort(key=position)
+        
+        FastestLap = {}
+        FastestLapRank = {} #!!!!!!!!!!!!!!!!!!!!!
+        GridDelta = {}
+        for driver in results["DriverNumber"]:
+            fastestLap = session_results.laps.pick_driver(driver).pick_fastest()
+            FastestLap[driver] = str(fastestLap['LapTime'].to_pytimedelta())[:-3]
+            GridDelta[driver] = results["GridPosition"][driver] - results["Position"][driver]
+
+        session_results_data = {
+            "sortedDriverPositionNumber": sortedDriverPositionNumber,
+            "BroadcastName": results["BroadcastName"].to_dict(),
+            "TeamName": results["TeamName"].to_dict(),
+            "Position":results["Position"].to_dict(),
+            "GridPosition":results["GridPosition"].to_dict(),
+            "GridDelta": GridDelta,
+            "FastestLap" : FastestLap,
+            "Status":results["Status"].to_dict(),
+            "Points":results["Points"].to_dict(),
+        }
+
         cache.set(id, session_results_data)
     else:
         session_results_data = cached_session
-    session_results_data.load()
-    results = session_results_data.results
-
-    def position(driver):
-        return results['Position'][driver]
-    sortedDriverPositionNumber = list(results["DriverNumber"])
-    sortedDriverPositionNumber.sort(key=position)
     
-    FastestLap = {}
-    FastestLapRank = {} #!!!!!!!!!!!!!!!!!!!!!
-    GridDelta = {}
-    for driver in results["DriverNumber"]:
-        fastestLap = session_results_data.laps.pick_driver(driver).pick_fastest()
-        FastestLap[driver] = str(fastestLap['LapTime'].to_pytimedelta())[:-3]
-
-        GridDelta[driver] = results["GridPosition"][driver] - results["Position"][driver]
-
-
-    tmp = {
-        "sortedDriverPositionNumber": sortedDriverPositionNumber,
-        "BroadcastName": results["BroadcastName"].to_dict(),
-        "TeamName": results["TeamName"].to_dict(),
-        "Position":results["Position"].to_dict(),
-        "GridPosition":results["GridPosition"].to_dict(),
-        "GridDelta": GridDelta,
-        "FastestLap" : FastestLap,
-        "Status":results["Status"].to_dict(),
-        "Points":results["Points"].to_dict(),
-    }
-    return jsonify(tmp)
+    return jsonify(session_results_data)
 
 
 # driver laps
