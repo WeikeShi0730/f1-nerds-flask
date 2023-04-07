@@ -6,6 +6,7 @@ import fastf1
 from rq import Queue
 from rq.job import Job
 from worker import conn, redis_url
+from datetime import timedelta
 
 config = {
     "DEBUG": True,  # some Flask specific configs
@@ -94,12 +95,18 @@ def session_result(year, weekend, session):
         sortedDriverPositionNumber.sort(key=position)
         
         FastestLap = {}
-        FastestLapRank = {} #!!!!!!!!!!!!!!!!!!!!!
         GridDelta = {}
+        minTime = timedelta.max
+        fastestLapDriver = ''
         for driver in results["DriverNumber"]:
-            fastestLap = session_results.laps.pick_driver(driver).pick_fastest()
-            FastestLap[driver] = str(fastestLap['LapTime'].to_pytimedelta())[:-3]
+            driverFastestLap = session_results.laps.pick_driver(driver).pick_fastest()
+            time = driverFastestLap['LapTime'].to_pytimedelta()
+            FastestLap[driver] = str(driverFastestLap['LapTime'].to_pytimedelta())[:-3]
             GridDelta[driver] = results["GridPosition"][driver] - results["Position"][driver]
+            
+            if (time < minTime):
+                minTime = time
+                fastestLapDriver = driver
 
         session_results_data = {
             "sortedDriverPositionNumber": sortedDriverPositionNumber,
@@ -109,6 +116,7 @@ def session_result(year, weekend, session):
             "GridPosition":results["GridPosition"].to_dict(),
             "GridDelta": GridDelta,
             "FastestLap" : FastestLap,
+            "FastestLapDriver": fastestLapDriver,
             "Status":results["Status"].to_dict(),
             "Points":results["Points"].to_dict(),
         }
