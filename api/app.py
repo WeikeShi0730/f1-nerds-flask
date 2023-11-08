@@ -48,7 +48,8 @@ FP1 = {"FP1": "FP1"}
 FP2 = {"FP2": "FP2"}
 FP3 = {"FP3": "FP3"}
 Qualifying = {"Q": "Qualifying"}
-Sprint = {"SQ": "Sprint Qualifying"}
+SprintShootout = {"SS": "Sprint Shootout"}
+Sprint = {"S": "Sprint"}
 Race = {"R": "Race"}
 # get weekend sessions
 
@@ -57,13 +58,21 @@ def weekend(year, weekend):
     id = year + "-" + weekend
     cached_weekend = cache.get(id)
     if cached_weekend is None:
-        weekend_data = fastf1.get_session(int(year), weekend)
-        round = fastf1.core.get_round(int(year), weekend_data.name)
-        if (weekend_data.name in SPRINT_QUALI_WEEKENDS_2021 and year == str(2021)) or (weekend_data.name in SPRINT_QUALI_WEEKENDS_2022 and year == str(2022)) or (weekend_data.name in SPRINT_QUALI_WEEKENDS_2023 and year == str(2023)):
+        weekend_data = fastf1.get_event(int(year), weekend)
+        round = weekend_data.RoundNumber
+        if (weekend_data.name in SPRINT_QUALI_WEEKENDS_2021 and year == str(2021)) or (weekend_data.name in SPRINT_QUALI_WEEKENDS_2022 and year == str(2022)):
             weekend_sessions = [
                 FP1,
                 Qualifying,
                 FP2,
+                Sprint,
+                Race,
+            ]
+        elif (weekend_data.EventName in SPRINT_QUALI_WEEKENDS_2023 and year == str(2023)):
+            weekend_sessions = [
+                FP1,
+                Qualifying,
+                SprintShootout,
                 Sprint,
                 Race,
             ]
