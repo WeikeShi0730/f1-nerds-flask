@@ -7,6 +7,7 @@ from rq import Queue
 from rq.job import Job
 from worker import conn, redis_url
 from datetime import timedelta
+from math import isnan
 
 config = {
     "DEBUG": True,  # some Flask specific configs
@@ -109,10 +110,17 @@ def session_result(year, weekend, session):
         fastestLapDriver = ''
         for driver in results["DriverNumber"]:
             driverFastestLap = session_results.laps.pick_driver(driver).pick_fastest()
-            time = driverFastestLap['LapTime'].to_pytimedelta()
-            FastestLap[driver] = str(driverFastestLap['LapTime'].to_pytimedelta())[:-3]
+            time = driverFastestLap['LapTime']
+            FastestLap[driver] = str(driverFastestLap['LapTime'])[:-3]
             GridDelta[driver] = results["GridPosition"][driver] - results["Position"][driver]
-            
+            if isnan(results["GridPosition"][driver]):
+                results["GridPosition"][driver] = "N/A"
+                GridDelta[driver] = "N/A"
+            if isnan(results["Position"][driver]):
+                results["Position"][driver] = "N/A"
+                GridDelta[driver] = "N/A"
+            if isnan(results["Points"][driver]):
+                results["Points"][driver] = "N/A"
             if (time < minTime):
                 minTime = time
                 fastestLapDriver = driver
